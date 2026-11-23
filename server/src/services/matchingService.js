@@ -2,7 +2,7 @@ import { normalizeIngredient } from '../data/synonyms.js';
 
 function cleanItems(items=[]){
  const seen=new Set();
- return items.filter(x=>x?.name).map(x=>String(x.name).trim()).filter(x=>{
+ return items.map(x=>typeof x==='string'?x:x?.name).filter(Boolean).map(x=>String(x).trim()).filter(x=>{
   const key=normalizeIngredient(x);if(!key||seen.has(key))return false;seen.add(key);return true;
  });
 }
@@ -52,7 +52,7 @@ function buildSteps(style, items, seasonings, tool){
  ];
 }
 export function matchRecipes({ingredients=[],seasonings=[],tool='프라이팬',prefer=[]}={}){
- const chosen=cleanItems(ingredients.filter(x=>x.status!=='rejected').map(x=>x.name));
+ const chosen=cleanItems(ingredients.filter(x=>x.status!=='rejected'));
  const pantry=cleanItems(seasonings);
  if(!chosen.length)return [];
  const ordered=[...chosen].sort((a,b)=>Number(prefer.map(normalizeIngredient).includes(normalizeIngredient(b)))-Number(prefer.map(normalizeIngredient).includes(normalizeIngredient(a))));
