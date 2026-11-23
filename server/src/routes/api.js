@@ -10,7 +10,7 @@ const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:10*1024*102
 router.post('/vision/scan',upload.single('image'),async(req,res)=>{
  if(!req.file)return res.status(400).json({success:false,message:'이미지 파일이 필요합니다.'});
  try{const data=await analyzeFridgeImage(req.file.buffer,req.file.mimetype);res.json({success:true,data});}
- catch{res.status(503).json({success:false,message:'사진 분석에 실패했습니다. 사진 업로드 대신 직접 입력을 계속 이용할 수 있습니다.',data:{candidates:[]}});}
+ catch(error){console.error('[vision/scan] 분석 실패:',error?.message||error);res.status(503).json({success:false,message:'사진 분석에 실패했습니다. 사진 업로드 대신 직접 입력을 계속 이용할 수 있습니다.',data:{candidates:[]}});}
 });
 router.post('/recipes/recommend',(req,res)=>{
  const {ingredients=[],seasonings=[],tool='프라이팬',prefer=[]}=req.body||{};
