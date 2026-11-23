@@ -1,11 +1,10 @@
 const MODELS=['gemini-3.8-flash','gemini-3.5-flash-lite'];
-const RETRYABLE=new Set([429,500,502,503,504]);
-const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function requestGemini({key,model,base64,mimetype,prompt}){
  const response=await fetch('https://generativelanguage.googleapis.com/v1beta/interactions',{
   method:'POST',
   headers:{'Content-Type':'application/json','x-goog-api-key':key,'Api-Revision':'2026-05-20'},
-  signal:AbortSignal.timeout(60000),
+  // Keep each model attempt below the hosting request timeout so the fallback can run.
+  signal:AbortSignal.timeout(25000),
   body:JSON.stringify({
    model,
    input:[{type:'text',text:prompt},{type:'image',data:base64,mime_type:mimetype}],
@@ -21,7 +20,7 @@ async function requestGemini({key,model,base64,mimetype,prompt}){
   throw error;
  }
  const payload=await response.json();
- const raw=payload.output_text || payload.steps?.filter(s=>s.type==='model_output').flatMap(s=>s.content||[]).filter(c=>c.type==='text').map(c=>c.text).join('\n');
+ const raw=payload.output_text || payload.steps?.filter(s=>s.type==='model_output').flatMap(s=>s.content||[]).filter(c=>c.type==='text').map(c=>c.text).join('\\n');
  if(!raw)throw new Error(`Gemini ${model} returned no text output`);
  let parsed;
  try{parsed=JSON.parse(raw);}catch{throw new Error(`Gemini ${model} returned invalid JSON output`);}
@@ -34,16 +33,12 @@ export async function analyzeFridgeImage(buffer,mimetype){
  const prompt=`냉장고 사진에서 시각적으로 명확하게 확인 가능한 식재료만 JSON으로 반환하세요. 보이지 않는 내용물을 추측하지 마세요. 불투명 봉지는 name을 "내용물 확인 필요"로, obscured true로 표기. 포장식품은 라벨 판독 여부와 closeLabel true 여부. 각 후보에 sourceRegion을 정규화된 0~1000 좌표 {x,y,width,height}로 포함. 수량/단위가 시각적으로 불명확하면 quantity와 unit은 null. 중복 물체를 반복 등록하지 마세요. JSON 스키마: {"candidates":[{"name":"...","quantity":null,"unit":null,"sourceRegion":{"x":0,"y":0,"width":100,"height":100},"obscured":false,"closeLabel":false,"note":"..."}]}`;
  const failures=[];
  for(const model of MODELS){
-  for(let attempt=0;attempt<2;attempt++){
-   try{
-    const parsed=await requestGemini({key,model,base64,mimetype,prompt});
-    return {available:true,candidates:(parsed.candidates||[]).map((c,i)=>({...c,id:`candidate-${i}`,status:'pending',quantity:c.obscured?null:c.quantity,unit:c.obscured?null:c.unit}))};
-   }catch(error){
-    failures.push(error.message);
-    if(!RETRYABLE.has(error.status))throw error;
-    if(attempt===0)await sleep(900);
-    else break;
-   }
+  try{
+   const parsed=await requestGemini({key,model,base64,mimetype,prompt});
+   return {available:true,candidates:(parsed.candidates||[]).map((c,i)=>({...c,id:`candidate-${i}`,status:'pending',quantity:c.obscured?null:c.quantity,unit:c.obscured?null:c.unit}))};
+  }catch(error){
+   // A timed-out or overloaded model must not prevent trying the fallback model.
+   failures.push(`Gemini ${model}: ${error.name==='TimeoutError'||error.name==='AbortError'?'request timed out':error.message}`);
   }
  }
  throw new Error(`모든 Gemini 모델 요청 실패: ${failures.join(' | ')}`);
