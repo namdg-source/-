@@ -1,11 +1,25 @@
 const MODELS=['gemini-3.8-flash','gemini-3.5-flash-lite'];
+const RETRYABLE_STATUS=new Set([408,429,500,502,503,504]);
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function requestGemini({key,model,base64,mimetype,prompt}){
- const response=await fetch('https://generativelanguage.googleapis.com/v1beta/interactions',{
+ let response;
+ for(let attempt=0;attempt<2;attempt++){
+  try{
+   response=await fetch('https://generativelanguage.googleapis.com/v1beta/interactions',{
   method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key,'Api-Revision':'2026-05-20'},
   signal:AbortSignal.timeout(25000),
-  body:JSON.stringify({model,input:[{type:'text',text:prompt},{type:'image',data:base64,mime_type:mimetype}],response_format:{type:'text',mime_type:'application/json'}})
- });
- if(!response.ok){const body=await response.text();let detail=body;try{detail=JSON.parse(body).error?.message||body;}catch{}const e=new Error(`Gemini ${model} HTTP ${response.status}: ${detail.slice(0,700)}`);e.status=response.status;throw e;}
+   body:JSON.stringify({model,input:[{type:'text',text:prompt},{type:'image',data:base64,mime_type:mimetype}],response_format:{type:'text',mime_type:'application/json'}})
+   });
+   if(response.ok)break;
+   const body=await response.text();let detail=body;try{detail=JSON.parse(body).error?.message||body;}catch{}
+   if(attempt===0&&RETRYABLE_STATUS.has(response.status)){await sleep(1200);continue;}
+   const e=new Error(`Gemini ${model} HTTP ${response.status}: ${detail.slice(0,700)}`);e.status=response.status;throw e;
+  }catch(error){
+   if(attempt===0&&(error.name==='TimeoutError'||error.name==='AbortError'||error.name==='TypeError')){await sleep(500);continue;}
+   throw error;
+  }
+ }
+ if(!response?.ok)throw new Error(`Gemini ${model} request failed after retry`);
  const payload=await response.json();
  const raw=payload.output_text||payload.steps?.filter(s=>s.type==='model_output').flatMap(s=>s.content||[]).filter(c=>c.type==='text').map(c=>c.text).join('\\n');
  if(!raw)throw new Error(`Gemini ${model} returned no text output`);
