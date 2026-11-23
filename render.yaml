@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: hankki-eottae
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm --prefix server install && npm --prefix client install && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 22
