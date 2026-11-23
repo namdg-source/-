@@ -15,7 +15,7 @@ router.post('/vision/scan',upload.single('image'),async(req,res)=>{
 router.post('/recipes/recommend',(req,res)=>{
  const {ingredients=[],seasonings=[],tool='프라이팬',prefer=[]}=req.body||{};
  if(!Array.isArray(ingredients)||!Array.isArray(seasonings))return res.status(400).json({success:false,message:'재료 형식이 올바르지 않습니다.'});
- const data=matchRecipes({ingredients,seasonings,tool,prefer});res.json({success:true,data,message:data.length?undefined:'확인한 재료와 양념, 조리 용기 조건을 모두 만족하는 레시피가 없습니다.'});
+ const data=matchRecipes({ingredients,seasonings,tool,prefer});res.json({success:true,data,message:data.length?undefined:'재료를 하나 이상 선택하면 추천 메뉴를 만들 수 있습니다.'});
 });
 router.get('/admin/cookrcp/candidates',async(req,res)=>{
  const token=process.env.MFDS_IMPORT_TOKEN;
