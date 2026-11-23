@@ -1,5 +1,5 @@
 import React,{useEffect,useMemo,useState} from 'react';import{createRoot}from'react-dom/client';import{Camera,Upload,PenLine,Check,Trash2,ArrowRight,ChefHat,Clock,Flame,Plus,Minus,RefreshCw,AlertCircle,ChevronLeft}from'lucide-react';import'./style.css';
-const api=async(url,options={})=>{const r=await fetch(url,options);const j=await r.json();if(!r.ok)throw new Error(j.message||'요청을 처리하지 못했습니다.');return j;};
+const API_BASE=(import.meta.env.VITE_API_BASE_URL||'').replace(/\\/$/,'');\nconst api=async(url,options={})=>{const r=await fetch(`${API_BASE}${url}`,options);const j=await r.json();if(!r.ok)throw new Error(j.message||'요청을 처리하지 못했습니다.');return j;};
 function App(){
  const[step,setStep]=useState(0),[image,setImage]=useState(null),[candidates,setCandidates]=useState([]),[ingredients,setIngredients]=useState([]),[manual,setManual]=useState(''),[pantry,setPantry]=useState([]),[pantryData,setPantryData]=useState([]),[tool,setTool]=useState('프라이팬'),[prefer,setPrefer]=useState(''),[recipes,setRecipes]=useState([]),[selected,setSelected]=useState(null),[cookStep,setCookStep]=useState(0),[seconds,setSeconds]=useState(0),[running,setRunning]=useState(false),[notice,setNotice]=useState('');
  useEffect(()=>{api('/api/pantry').then(x=>setPantryData(x.data)).catch(()=>{});},[]);
